@@ -1,0 +1,49 @@
+---
+services:
+  tailverse:
+    build:
+      context: ${PROJECT_ROOT}
+      dockerfile: ${PROJECT_ROOT}/cmd/tailverse/dockerfile
+    container_name: tailverse
+    environment:
+      HTTP_ADDRESS: ${HTTP_ADDRESS}
+      HTTP_SHUTDOWN_TIMEOUT: ${HTTP_SHUTDOWN_TIMEOUT}
+      HTTP_IDLE_TIMEOUT: ${HTTP_IDLE_TIMEOUT}
+      POSTGRES_HOST: tailverse-postgres
+      POSTGRES_PORT: ${POSTGRES_HOST}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_TIMEOUT: ${POSTGRES_TIMEOUT}
+      LOGGER_LEVEL: ${LOGGER_LEVEL}
+      LOGGER_FOLDER: ${LOGGER_FOLDER}
+    volumes: ['${PROJECT_ROOT}/app/out/logs:/app/out/logs']
+    restart: always
+    ports: [8081:8081]
+  tailverse-postgres:
+    image: postgres:18.3-bookworm
+    container_name: tailverse-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes: ['${PROJECT_ROOT}/out/pgdata:/var/lib/postgresql']
+    restart: always
+  tailverse-postgres-migrate:
+    image: migrate/migrate:v4.20.1
+    volumes: ['${PROJECT_ROOT}/migrations:/migrations']
+  tailverse-postgres-port-forwarder:
+    image: alpine/socat:latest
+    container_name: port-forwarder
+    command: tcp-listen:5432,fork,reuseaddr tcp-connect:tailverse-postgress:5432
+    ports: [127.0.0.1:5432:5432]
+    restart: unless-stopped
+  swagger:
+    build:
+      context: ${PROJECT_ROOT}
+      dockerfile_inline: |
+        FROM golang:1.27.1-alpine
+        RUN apk add --no-cache git
+        RUN go install github.com/swaggo/swag/cmd/swag@latest
+        WORKDIR /code
+        ENTRYPOINT ["swag"]
+    volumes: ['${PROJECT_ROOT}:/code']
