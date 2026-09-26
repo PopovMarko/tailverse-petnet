@@ -10,6 +10,7 @@ import (
 type PetService interface {
 	CreatePet(ctx context.Context, pet core_domain.Pet) (core_domain.Pet, error)
 	GetPets(ctx context.Context) ([]core_domain.Pet, error)
+	GetPet(ctx context.Context, key string) (core_domain.Pet, error)
 }
 
 type PetHttpHandler struct {
@@ -26,6 +27,7 @@ func NewPetsRouter(h *PetHttpHandler) *chi.Mux {
 	r := chi.NewRouter()
 	r.Post("/", h.CreatePet)
 	r.Get("/", h.GetPets)
+	r.Get("/id", h.GetPet)
 
 	return r
 }
