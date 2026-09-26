@@ -17,8 +17,8 @@ func NewResponseWriter(w http.ResponseWriter) *ResponseWriter {
 }
 
 func (w *ResponseWriter) WriteHeader(status int) {
-	w.WriteHeader(status)
 	w.status = status
+	w.ResponseWriter.WriteHeader(status)
 }
 
 func (w *ResponseWriter) GetStatusCode() int {

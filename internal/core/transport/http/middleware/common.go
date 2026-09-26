@@ -1,14 +1,13 @@
 package core_http_middleware
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"os"
 	"time"
 
-	core_logger "github.com/PopovMarko/tailverse-petnet/internal/core/logger"
-	core_http_response "github.com/PopovMarko/tailverse-petnet/internal/core/transport/http/response"
+	"github.com/PopovMarko/tailverse-petnet/internal/core/logger"
+	"github.com/PopovMarko/tailverse-petnet/internal/core/transport/http/response"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
@@ -20,10 +19,11 @@ var prefix string
 type Middleware func(http.Handler) http.Handler
 
 func init() {
-	prefix, err := os.Hostname()
-	if prefix == "" || err != nil {
-		prefix = "localhost"
+	p, err := os.Hostname()
+	if p == "" || err != nil {
+		p = "localhost"
 	}
+	prefix = p
 }
 
 func RequestID() Middleware {
@@ -35,7 +35,10 @@ func RequestID() Middleware {
 				myid := uuid.NewString()
 				requestID = fmt.Sprintf("%s-%s", prefix, myid)
 			}
-			ctx = context.WithValue(ctx, requestIdKey, requestID)
+
+			w.Header().Set(requestIdKey, requestID)
+			r.Header.Set(requestIdKey, requestID)
+
 			next.ServeHTTP(w, r.WithContext(ctx))
 		}
 		return http.HandlerFunc(currentHandler)
@@ -70,8 +73,8 @@ func Logger(logger *core_logger.Logger) Middleware {
 
 			// Logger preconfigure for particular request with request id and url
 			log := logger.With(
-				zap.String("request ID: ", requestID),
-				zap.String("URL: ", r.URL.String()),
+				zap.String("request_id", requestID),
+				zap.String("url", r.URL.String()),
 			)
 
 			ctx := core_logger.ToContext(r.Context(), log)
@@ -91,15 +94,15 @@ func Trace() Middleware {
 			// On the way IN
 			before := time.Now().UTC()
 			logger.Debug(">>> Incoming http request",
-				zap.String("Url: ", r.URL.String()),
-				zap.Time("came at: ", before))
+				zap.String("url", r.URL.String()),
+				zap.Time("came_at: ", before))
 
 			next.ServeHTTP(rw, r)
 
 			//On the way OUT
 			logger.Debug("<<< Outcoming http response",
 				zap.Int("status", rw.GetStatusCode()),
-				zap.Duration("latency: ", time.Since(before)))
+				zap.Duration("latency", time.Since(before)))
 		})
 	}
 }
@@ -109,11 +112,11 @@ func Panic() Middleware {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
 			logger := core_logger.FromContext(ctx)
-			responseHandler := core_http_response.NewResponseHandler(logger, w)
+			responseHandler := core_http_response.NewHttpResponseHandler(logger, w)
 
 			defer func() {
 				if p := recover(); p != nil {
-					responseHandler.PanicResponse(p)
+					responseHandler.PanicResponse("panic", p)
 				}
 			}()
 			next.ServeHTTP(w, r)
