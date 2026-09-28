@@ -1,6 +1,11 @@
 package core_http_response
 
-import "net/http"
+import (
+	"bufio"
+	"fmt"
+	"net"
+	"net/http"
+)
 
 var UninitializedStatus = -1
 
@@ -26,4 +31,19 @@ func (w *ResponseWriter) GetStatusCode() int {
 		return http.StatusOK
 	}
 	return w.status
+}
+
+// Unwrap lets http.ResponseController reach the underlying writer.
+func (w *ResponseWriter) Unwrap() http.ResponseWriter {
+	return w.ResponseWriter
+}
+
+// Hijack is required for the WebSocket upgrade to pass through the Trace middleware.
+func (w *ResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	hijacker, ok := w.ResponseWriter.(http.Hijacker)
+	if !ok {
+		return nil, nil, fmt.Errorf("underlying response writer does not support hijacking")
+	}
+	w.status = http.StatusSwitchingProtocols
+	return hijacker.Hijack()
 }

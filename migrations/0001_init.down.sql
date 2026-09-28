@@ -1,0 +1,7 @@
+DROP TABLE IF EXISTS services;
+DROP TABLE IF EXISTS posts;
+DROP TABLE IF EXISTS announcement_participants;
+DROP TABLE IF EXISTS walk_announcements;
+DROP TABLE IF EXISTS walk_spots;
+DROP TABLE IF EXISTS pets;
+DROP TABLE IF EXISTS owners;

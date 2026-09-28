@@ -16,15 +16,15 @@ func (h *PetHttpHandler) GetPet(w http.ResponseWriter, r *http.Request) {
 
 	logger.Debug("GetPet handler called")
 
-	petId, err := core_http_utils.GetStringPathParams(r, "id")
+	petId, err := core_http_utils.GetUUIDPathParam(r, "id")
 	if err != nil {
-		httpResponseHandler.ErrorResponse("GetPet handler:", err)
+		httpResponseHandler.ErrorResponse("GetPet handler: invalid pet id", err)
 		return
 	}
 
 	petDomain, err := h.petService.GetPet(ctx, petId)
 	if err != nil {
-		httpResponseHandler.ErrorResponse("GetPet handler:", err)
+		httpResponseHandler.ErrorResponse("GetPet handler: pet service", err)
 		return
 	}
 

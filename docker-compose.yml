@@ -1,0 +1,55 @@
+# Local infrastructure for Tailverse: PostgreSQL + PostGIS and Redis.
+#   make up    — start postgres and redis (the API runs on the host with `make run`)
+#   docker compose --profile full up --build   — also run the API in a container
+# Variables come from .env (copy .env.example).
+
+services:
+  postgres:
+    # Multi-arch PostGIS build (postgis/postgis has no arm64 images).
+    image: imresamu/postgis:18-3.6
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:8-alpine
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  api:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: cmd/tailverse/Dockerfile
+    env_file: .env
+    environment:
+      HTTP_ADDRESS: 0.0.0.0
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      REDIS_ADDRESS: redis:6379
+      LOGGER_FOLDER: /app/logs
+    ports:
+      - "127.0.0.1:${HTTP_PORT:-8080}:${HTTP_PORT:-8080}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  pgdata:

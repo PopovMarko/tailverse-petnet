@@ -54,7 +54,7 @@ func CORS() Middleware {
 				origin = "*"
 			}
 			w.Header().Set("Access-Control-Allow-Origin", origin)
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, UPDATE, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Request-ID")
 
 			if r.Method == http.MethodOptions {
@@ -66,6 +66,18 @@ func CORS() Middleware {
 	}
 }
 
+// redactedURL hides the "token" query parameter (WebSocket clients pass the JWT there) so it never reaches the logs.
+func redactedURL(r *http.Request) string {
+	query := r.URL.Query()
+	if !query.Has("token") {
+		return r.URL.String()
+	}
+	query.Set("token", "REDACTED")
+	redacted := *r.URL
+	redacted.RawQuery = query.Encode()
+	return redacted.String()
+}
+
 func Logger(logger *core_logger.Logger) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -74,7 +86,7 @@ func Logger(logger *core_logger.Logger) Middleware {
 			// Logger preconfigure for particular request with request id and url
 			log := logger.With(
 				zap.String("request_id", requestID),
-				zap.String("url", r.URL.String()),
+				zap.String("url", redactedURL(r)),
 			)
 
 			ctx := core_logger.ToContext(r.Context(), log)
@@ -94,7 +106,7 @@ func Trace() Middleware {
 			// On the way IN
 			before := time.Now().UTC()
 			logger.Debug(">>> Incoming http request",
-				zap.String("url", r.URL.String()),
+				zap.String("url", redactedURL(r)),
 				zap.Time("came_at: ", before))
 
 			next.ServeHTTP(rw, r)
