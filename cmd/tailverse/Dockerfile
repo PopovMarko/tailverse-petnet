@@ -8,7 +8,8 @@ COPY . .
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/tailverse ./cmd/tailverse
 
 FROM alpine:3.22
-RUN apk add --no-cache ca-certificates tzdata && adduser -D -u 10001 tailverse
+RUN apk add --no-cache ca-certificates tzdata && adduser -D -u 10001 tailverse \
+    && mkdir -p /app/data/uploads && chown -R tailverse /app/data
 USER tailverse
 WORKDIR /app
 COPY --from=build /out/tailverse /app/tailverse

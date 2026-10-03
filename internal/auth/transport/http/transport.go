@@ -9,7 +9,7 @@ import (
 )
 
 type AuthService interface {
-	Register(ctx context.Context, email, password, nickname string) (core_domain.Owner, core_auth.TokenPair, error)
+	Register(ctx context.Context, email, password string, profile core_domain.OwnerPatch) (core_domain.Owner, core_auth.TokenPair, error)
 	Login(ctx context.Context, email, password string) (core_auth.TokenPair, error)
 	Refresh(ctx context.Context, refreshToken string) (core_auth.TokenPair, error)
 }

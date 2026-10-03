@@ -5,10 +5,12 @@ import (
 	"fmt"
 
 	core_domain "github.com/PopovMarko/tailverse-petnet/internal/core/domain"
+	core_errors "github.com/PopovMarko/tailverse-petnet/internal/core/errors"
 )
 
 type WalkSpotRepository interface {
 	ListNearby(ctx context.Context, query core_domain.NearbyQuery) ([]core_domain.WalkSpot, error)
+	ListByDistance(ctx context.Context, query core_domain.NearbyQuery) ([]core_domain.WalkSpotWithDistance, error)
 	GetWalkSpot(ctx context.Context, id string) (core_domain.WalkSpot, error)
 }
 
@@ -56,6 +58,37 @@ func (s *WalkSpotService) ListNearby(ctx context.Context, query core_domain.Near
 	summaries := make([]core_domain.WalkSpotSummary, len(spots))
 	for i, spot := range spots {
 		summaries[i] = core_domain.WalkSpotSummary{WalkSpot: spot, PresentCount: counts[spot.Id]}
+	}
+	return summaries, nil
+}
+
+// ListForPicker returns the spots for the "Иду гулять" spot picker: at most MaxSpotPickerRadiusM away,
+// closest first (the repository sorts by distance).
+func (s *WalkSpotService) ListForPicker(ctx context.Context, query core_domain.NearbyQuery) ([]core_domain.NearbyWalkSpotSummary, error) {
+	if query.RadiusM <= 0 || query.RadiusM > core_domain.MaxSpotPickerRadiusM {
+		return nil, fmt.Errorf("radius_m must be in (0, %d]: %w", core_domain.MaxSpotPickerRadiusM, core_errors.ErrInvalidArgument)
+	}
+
+	spots, err := s.repository.ListByDistance(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("list spots by distance: %w", err)
+	}
+
+	spotIds := make([]string, len(spots))
+	for i, spot := range spots {
+		spotIds[i] = spot.Id
+	}
+	counts, err := s.presence.CountPresent(ctx, spotIds)
+	if err != nil {
+		return nil, fmt.Errorf("count present: %w", err)
+	}
+
+	summaries := make([]core_domain.NearbyWalkSpotSummary, len(spots))
+	for i, spot := range spots {
+		summaries[i] = core_domain.NearbyWalkSpotSummary{
+			WalkSpotSummary: core_domain.WalkSpotSummary{WalkSpot: spot.WalkSpot, PresentCount: counts[spot.Id]},
+			DistanceM:       spot.DistanceM,
+		}
 	}
 	return summaries, nil
 }

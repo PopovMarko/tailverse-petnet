@@ -78,6 +78,10 @@ func statusFromError(err error) int {
 		return http.StatusNotFound
 	case errors.Is(err, core_errors.ErrConflict):
 		return http.StatusConflict
+	case errors.Is(err, core_errors.ErrTooLarge):
+		return http.StatusRequestEntityTooLarge
+	case errors.Is(err, core_errors.ErrUnsupportedMediaType):
+		return http.StatusUnsupportedMediaType
 	default:
 		return http.StatusInternalServerError
 	}

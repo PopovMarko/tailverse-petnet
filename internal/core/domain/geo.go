@@ -9,6 +9,10 @@ import (
 const (
 	DefaultRadiusM = 2000
 	MaxRadiusM     = 50000
+
+	// The spot picker of the "Иду гулять" form (GET /walkspots/nearby) only offers spots within walking distance.
+	DefaultSpotPickerRadiusM = 500
+	MaxSpotPickerRadiusM     = 500
 )
 
 type GeoPoint struct {
@@ -30,15 +34,24 @@ type NearbyQuery struct {
 }
 
 func NewNearbyQuery(lat, lng *float64, radiusM *int) (NearbyQuery, error) {
+	return newNearbyQuery(lat, lng, radiusM, DefaultRadiusM, MaxRadiusM)
+}
+
+// NewSpotPickerQuery is NewNearbyQuery for GET /walkspots/nearby: radius_m defaults to 500 and may not exceed 500.
+func NewSpotPickerQuery(lat, lng *float64, radiusM *int) (NearbyQuery, error) {
+	return newNearbyQuery(lat, lng, radiusM, DefaultSpotPickerRadiusM, MaxSpotPickerRadiusM)
+}
+
+func newNearbyQuery(lat, lng *float64, radiusM *int, defaultRadiusM, maxRadiusM int) (NearbyQuery, error) {
 	if lat == nil || lng == nil {
 		return NearbyQuery{}, fmt.Errorf("lat and lng are required: %w", core_errors.ErrInvalidArgument)
 	}
-	query := NearbyQuery{Center: GeoPoint{Lat: *lat, Lng: *lng}, RadiusM: DefaultRadiusM}
+	query := NearbyQuery{Center: GeoPoint{Lat: *lat, Lng: *lng}, RadiusM: defaultRadiusM}
 	if radiusM != nil {
 		query.RadiusM = *radiusM
 	}
-	if query.RadiusM <= 0 || query.RadiusM > MaxRadiusM {
-		return NearbyQuery{}, fmt.Errorf("radius_m must be in (0, %d]: %w", MaxRadiusM, core_errors.ErrInvalidArgument)
+	if query.RadiusM <= 0 || query.RadiusM > maxRadiusM {
+		return NearbyQuery{}, fmt.Errorf("radius_m must be in (0, %d]: %w", maxRadiusM, core_errors.ErrInvalidArgument)
 	}
 	if err := query.Center.Validate(); err != nil {
 		return NearbyQuery{}, err

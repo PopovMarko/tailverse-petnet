@@ -34,3 +34,15 @@ type WalkSpotSummary struct {
 	WalkSpot
 	PresentCount int
 }
+
+// WalkSpotWithDistance is a walk spot with its distance from the search centre, rounded to whole metres.
+type WalkSpotWithDistance struct {
+	WalkSpot
+	DistanceM int
+}
+
+// NearbyWalkSpotSummary is a spot picker entry: the spot, how many pets are there now and how far away it is.
+type NearbyWalkSpotSummary struct {
+	WalkSpotSummary
+	DistanceM int
+}

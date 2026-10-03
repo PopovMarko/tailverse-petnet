@@ -10,7 +10,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const ownerColumns = `id, email, password_hash, nickname, COALESCE(gender, ''), COALESCE(avatar_url, ''), is_profile_public, created_at`
+const ownerColumns = `id, email, password_hash, nickname, COALESCE(gender, ''), COALESCE(avatar_url, ''), is_profile_public,
+	is_gender_public, is_avatar_public, created_at`
 
 type OwnerRepository struct {
 	pool *pgxpool.Pool
@@ -22,10 +23,11 @@ func NewOwnerRepository(pool *pgxpool.Pool) *OwnerRepository {
 
 func (r *OwnerRepository) CreateOwner(ctx context.Context, owner core_domain.Owner) (core_domain.Owner, error) {
 	row := r.pool.QueryRow(ctx, `
-		INSERT INTO owners (email, password_hash, nickname)
-		VALUES ($1, $2, $3)
+		INSERT INTO owners (email, password_hash, nickname, gender, avatar_url, is_gender_public, is_avatar_public)
+		VALUES ($1, $2, $3, NULLIF($4, ''), NULLIF($5, ''), $6, $7)
 		RETURNING `+ownerColumns,
-		owner.Email, owner.PasswordHash, owner.Nickname,
+		owner.Email, owner.PasswordHash, owner.Nickname, owner.Gender, owner.AvatarUrl,
+		owner.Visibility.Gender, owner.Visibility.AvatarUrl,
 	)
 	created, err := scanOwner(row)
 	if err != nil {
@@ -52,6 +54,7 @@ func (r *OwnerRepository) GetOwner(ctx context.Context, id string) (core_domain.
 
 func scanOwner(row pgx.Row) (core_domain.Owner, error) {
 	var owner core_domain.Owner
-	err := row.Scan(&owner.Id, &owner.Email, &owner.PasswordHash, &owner.Nickname, &owner.Gender, &owner.AvatarUrl, &owner.IsProfilePublic, &owner.CreatedAt)
+	err := row.Scan(&owner.Id, &owner.Email, &owner.PasswordHash, &owner.Nickname, &owner.Gender, &owner.AvatarUrl, &owner.IsProfilePublic,
+		&owner.Visibility.Gender, &owner.Visibility.AvatarUrl, &owner.CreatedAt)
 	return owner, err
 }

@@ -41,9 +41,10 @@ func NewAuthService(repository OwnerRepository, tokens TokenManager) *AuthServic
 	}
 }
 
-func (s *AuthService) Register(ctx context.Context, email, password, nickname string) (core_domain.Owner, core_auth.TokenPair, error) {
+// Register creates an owner. profile.Nickname is required; gender, avatar_url and visibility are optional
+// (visibility fields that are not set get core_domain.DefaultOwnerVisibility).
+func (s *AuthService) Register(ctx context.Context, email, password string, profile core_domain.OwnerPatch) (core_domain.Owner, core_auth.TokenPair, error) {
 	email = strings.ToLower(strings.TrimSpace(email))
-	nickname = strings.TrimSpace(nickname)
 
 	if _, err := mail.ParseAddress(email); err != nil {
 		return core_domain.Owner{}, core_auth.TokenPair{}, fmt.Errorf("invalid email: %w", core_errors.ErrInvalidArgument)
@@ -51,8 +52,10 @@ func (s *AuthService) Register(ctx context.Context, email, password, nickname st
 	if len(password) < minPasswordLength {
 		return core_domain.Owner{}, core_auth.TokenPair{}, fmt.Errorf("password must be at least %d characters: %w", minPasswordLength, core_errors.ErrInvalidArgument)
 	}
-	if nickname == "" {
-		return core_domain.Owner{}, core_auth.TokenPair{}, fmt.Errorf("nickname is required: %w", core_errors.ErrInvalidArgument)
+
+	owner := core_domain.Owner{Email: email, Visibility: core_domain.DefaultOwnerVisibility}.Apply(profile).NormalizeProfile()
+	if err := owner.ValidateProfile(); err != nil {
+		return core_domain.Owner{}, core_auth.TokenPair{}, err
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -60,11 +63,8 @@ func (s *AuthService) Register(ctx context.Context, email, password, nickname st
 		return core_domain.Owner{}, core_auth.TokenPair{}, fmt.Errorf("hash password: %w", err)
 	}
 
-	owner, err := s.repository.CreateOwner(ctx, core_domain.Owner{
-		Email:        email,
-		PasswordHash: string(hash),
-		Nickname:     nickname,
-	})
+	owner.PasswordHash = string(hash)
+	owner, err = s.repository.CreateOwner(ctx, owner)
 	if err != nil {
 		if errors.Is(err, core_errors.ErrConflict) {
 			return core_domain.Owner{}, core_auth.TokenPair{}, fmt.Errorf("email is already registered: %w", core_errors.ErrConflict)

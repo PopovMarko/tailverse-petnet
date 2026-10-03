@@ -21,7 +21,7 @@ func (h *AuthHttpHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	owner, tokens, err := h.authService.Register(ctx, registerDto.Email, registerDto.Password, registerDto.Nickname)
+	owner, tokens, err := h.authService.Register(ctx, registerDto.Email, registerDto.Password, RegisterDtoToProfile(registerDto))
 	if err != nil {
 		httpResponseHandler.ErrorResponse("Register handler: auth service", err)
 		return

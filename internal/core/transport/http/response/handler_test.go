@@ -19,6 +19,8 @@ func TestStatusFromError(t *testing.T) {
 		{fmt.Errorf("owner: %w", core_errors.ErrForbidden), http.StatusForbidden},
 		{fmt.Errorf("pet: %w", core_errors.ErrNotFound), http.StatusNotFound},
 		{fmt.Errorf("join: %w", core_errors.ErrConflict), http.StatusConflict},
+		{fmt.Errorf("upload: %w", core_errors.ErrTooLarge), http.StatusRequestEntityTooLarge},
+		{fmt.Errorf("upload: %w", core_errors.ErrUnsupportedMediaType), http.StatusUnsupportedMediaType},
 		{errors.New("connection refused"), http.StatusInternalServerError},
 	}
 	for _, tc := range cases {

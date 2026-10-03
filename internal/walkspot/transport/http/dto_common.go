@@ -19,6 +19,20 @@ type WalkSpotsListResponseDto struct {
 	Spots []WalkSpotSummaryDto `json:"spots"`
 }
 
+type NearbyWalkSpotDto struct {
+	Id           string   `json:"id"`
+	Name         string   `json:"name"`
+	Lat          float64  `json:"lat"`
+	Lng          float64  `json:"lng"`
+	Tags         []string `json:"tags"`
+	PresentCount int      `json:"present_count"`
+	DistanceM    int      `json:"distance_m"`
+}
+
+type NearbyWalkSpotsResponseDto struct {
+	Spots []NearbyWalkSpotDto `json:"spots"`
+}
+
 type PresentPetDto struct {
 	PetId         string    `json:"pet_id"`
 	PetName       string    `json:"pet_name"`
@@ -54,6 +68,18 @@ func SummaryToDto(spot core_domain.WalkSpotSummary) WalkSpotSummaryDto {
 		Lng:          spot.Location.Lng,
 		Tags:         nonNilTags(spot.Tags),
 		PresentCount: spot.PresentCount,
+	}
+}
+
+func NearbySummaryToDto(spot core_domain.NearbyWalkSpotSummary) NearbyWalkSpotDto {
+	return NearbyWalkSpotDto{
+		Id:           spot.Id,
+		Name:         spot.Name,
+		Lat:          spot.Location.Lat,
+		Lng:          spot.Location.Lng,
+		Tags:         nonNilTags(spot.Tags),
+		PresentCount: spot.PresentCount,
+		DistanceM:    spot.DistanceM,
 	}
 }
 
