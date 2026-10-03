@@ -1,71 +1,49 @@
-include .env 
+-include .env
 export
 
-export PROJECT_ROOT=${shell pwd}
-export LOGGER_FOLDER=${PROJECT_ROOT}/out/logs
+PROJECT_ROOT := $(shell pwd)
+export LOGGER_FOLDER ?= $(PROJECT_ROOT)/out/logs
 
-env-up:
-	@docker compose up -d tailverse-postgres
+.PHONY: env up down run migrate seed dev test smoke psql redis-cli clean-db
 
-env-down:
-	@docker compose down tailverse-postgres
+# Create .env from the example if it does not exist yet.
+env:
+	@test -f .env || (cp .env.example .env && echo "created .env from .env.example")
 
-env-cleanup:
-	@read -p "Cleanpu all volumes environment. [y/N]: " ans; \
-	if [ "$$ans" = "y" ]; then \
-		docker compose down tailverse-postgres tailverse-postgres-port-forwarder && \
-		rm -rf out/pgdata && \
-		echo "Volumes cleaned up"; \
-	else \
-		echo "Volumes cleanup cancelled"; \
-	fi
+# Start PostgreSQL + PostGIS and Redis and wait until they are healthy.
+up: env
+	docker compose up -d --wait postgres redis
 
-log-cleanup:
-	@read -p "CLeanup all log files. [y/N]: " ans; \
-		if [ "$$ans" = "y" ]; then \
-			rm -rf out/logs/* && \
-			echo "Log files cleaned up"; \
-		else \
-			echo "Log files cleanup cancelled"; \
-		fi;
+down:
+	docker compose down
 
-port-forward:
-	@docker compose up -d tailverse-postgres-port-forwarder
+# Run the API on the host (migrations are applied on startup).
+run:
+	go run $(PROJECT_ROOT)/cmd/tailverse
 
-port-forward-close:
-	@docker compose down tailverse-postgres-port-forwarder
+migrate:
+	go run $(PROJECT_ROOT)/cmd/tailverse -migrate-only
 
-migrate-create:
-	@if [ -z "$(seq)" ]; then \
-		echo "Error: No seq parameter. Usage: make migrate-create seq=init"; \
-		exit 1; \
-	fi; \
-	docker compose run --rm tailverse-postgres-migrate \
-		create \
-		-ext sql \
-		-dir /migrations \
-		-seq "$(seq)"
+# Load sample walk spots (the API has no endpoint to create them).
+seed: migrate
+	docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U $(POSTGRES_USER) -d $(POSTGRES_DB) < migrations/seed/walk_spots.sql
 
-migrate-action:
-	@if [ -z "$(action)" ]; then \
-		echo "Error: No action provided. Usage make migrate-action action=up"; \
-		exit 1; \
-	fi; \
-	docker compose run --rm tailverse-postgres-migrate \
-		-path /migrations \
-		-database postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@tailverse-postgres:5432/${POSTGRES_DB}?sslmode=disable \
-		"$(action)"
+# Everything needed for a fresh local start.
+dev: up seed run
 
-migrate-up:
-	migrate-action action=up
+test:
+	go test ./...
 
-migrate-down:
-	migrate-action action=down
+# End-to-end checks against the running API (make run). CLEANUP=1 removes the test owners afterwards.
+smoke:
+	./scripts/smoke.sh
 
-run-dev:
-	@go mod tidy && \
-	go run ./cmd/todo/main.go
+psql:
+	docker compose exec postgres psql -U $(POSTGRES_USER) -d $(POSTGRES_DB)
 
+redis-cli:
+	docker compose exec redis redis-cli
 
-ps:
-	docker compose ps -a
+# Drop all local data (postgres volume + redis state).
+clean-db:
+	docker compose down -v
