@@ -74,11 +74,11 @@ func NewLogger(config LoggerConfig) (*Logger, error) {
 
 }
 
-func loggerToContext(ctx context.Context, logger *Logger) context.Context {
+func ToContext(ctx context.Context, logger *Logger) context.Context {
 	return context.WithValue(ctx, key, logger)
 }
 
-func loggerFromContext(ctx context.Context) *Logger {
+func FromContext(ctx context.Context) *Logger {
 	logger, ok := ctx.Value(key).(*Logger)
 	if !ok {
 		panic("no logger in context")

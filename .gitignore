@@ -2,7 +2,15 @@
 
 out/
 
+# uploaded photos (UPLOADS_DIR)
+data/
+
+out/logs/
+out/pgdata/
+
 log/
 
 CLAUDE.md
 data/
+
+
