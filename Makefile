@@ -4,7 +4,7 @@ export
 PROJECT_ROOT := $(shell pwd)
 export LOGGER_FOLDER ?= $(PROJECT_ROOT)/out/logs
 
-.PHONY: env up down run migrate seed dev test psql redis-cli clean-db
+.PHONY: env up down run migrate seed dev test smoke psql redis-cli clean-db
 
 # Create .env from the example if it does not exist yet.
 env:
@@ -33,6 +33,10 @@ dev: up seed run
 
 test:
 	go test ./...
+
+# End-to-end checks against the running API (make run). CLEANUP=1 removes the test owners afterwards.
+smoke:
+	./scripts/smoke.sh
 
 psql:
 	docker compose exec postgres psql -U $(POSTGRES_USER) -d $(POSTGRES_DB)

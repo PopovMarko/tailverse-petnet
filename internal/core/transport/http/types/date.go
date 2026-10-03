@@ -9,6 +9,8 @@ import (
 const DateLayout = "2006-01-02"
 
 // Date is a calendar date that is sent over JSON as "YYYY-MM-DD".
+// An empty string decodes to the zero date, which means "no date": in a PATCH body
+// `"birth_date": ""` clears the date, while `null` or an absent field leaves it unchanged.
 type Date struct {
 	time.Time
 }
@@ -28,6 +30,10 @@ func (d *Date) UnmarshalJSON(data []byte) error {
 	var raw string
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return fmt.Errorf("date must be a string in format YYYY-MM-DD: %w", err)
+	}
+	if raw == "" {
+		d.Time = time.Time{}
+		return nil
 	}
 	parsed, err := time.Parse(DateLayout, raw)
 	if err != nil {

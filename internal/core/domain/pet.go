@@ -74,6 +74,7 @@ func (p Pet) Age(now time.Time) *int {
 }
 
 // PetPatch holds the fields of PATCH /pets/{id}; nil means "leave unchanged".
+// A non-nil zero BirthDate removes the birth date.
 type PetPatch struct {
 	Name          *string
 	Breed         *string

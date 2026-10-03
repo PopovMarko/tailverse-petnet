@@ -19,6 +19,8 @@ To run everything in containers instead: `docker compose --profile full up --bui
 
 Check it: `curl http://127.0.0.1:8080/health` → `{"postgres":"ok","redis":"ok"}`.
 
+Tests: `make test` runs the unit tests; with the API running, `make smoke` checks every endpoint end to end against it (`API=http://host:port/api/v1` to point it elsewhere, `CLEANUP=1` to delete its test accounts afterwards).
+
 ## Architecture
 
 Every domain follows **transport / service / repository**:
@@ -60,19 +62,19 @@ Base prefix `/api/v1`, JSON everywhere. Authenticated routes need `Authorization
 | POST | `/pets` | ✓ | `{name, breed, species?, birth_date? "YYYY-MM-DD", approx_address}`; species is derived from breed when omitted |
 | GET | `/pets` | ✓ | `{pets: [...]}` of the current owner |
 | GET | `/pets/{id}` | | pet with computed `age` |
-| PATCH | `/pets/{id}` | ✓ owner | any subset of the fields |
+| PATCH | `/pets/{id}` | ✓ owner | any subset of the fields; `name`, `breed`, `approx_address` can't be blank; `birth_date: ""` removes the date, `null`/absent keeps it |
 | DELETE | `/pets/{id}` | ✓ owner | 204 |
 | GET | `/walkspots?lat&lng&radius_m` | | `{spots: [{id, name, lat, lng, tags, present_count}]}`, radius defaults to 2000 m |
 | GET | `/walkspots/nearby?lat&lng&radius_m` | ✓ | spot picker for "Иду гулять": radius defaults to 500 m and may not exceed 500; spots closest first with `distance_m` |
 | GET | `/walkspots/{id}` | | spot + `present: [{pet_id, pet_name, owner_nickname, checked_in_at}]` |
 | POST | `/walkspots/{id}/checkin` | ✓ | `{pet_id}` → `{spot_id, pet_id, checked_in_at, expires_at}` |
 | DELETE | `/walkspots/{id}/checkin` | ✓ | `{pet_id}` → 204 |
-| POST | `/announcements` | ✓ | `{pet_id, spot_id | custom_point {lat,lng}, starts_at, duration_min}` (exactly one place) |
+| POST | `/announcements` | ✓ | `{pet_id, spot_id | custom_point {lat,lng}, starts_at, duration_min}` (exactly one place; an unknown `spot_id` → 400) |
 | GET | `/announcements?lat&lng&radius_m&from&to` | | active walks that have not ended; `from`/`to` are RFC 3339 |
 | GET | `/announcements/{id}` | | with `participants` |
 | POST | `/announcements/{id}/join` | ✓ | `{pet_id}`, 409 if already joined |
 | DELETE | `/announcements/{id}/join` | ✓ | `{pet_id}` → 204 |
-| POST | `/posts` | ✓ | `{pet_id, spot_id?, text, photo_urls}` (URLs from `POST /uploads`) |
+| POST | `/posts` | ✓ | `{pet_id, spot_id?, text, photo_urls}` (URLs from `POST /uploads`); an unknown `spot_id` → 400 |
 | GET | `/posts?spot_id&cursor&limit` | | `{posts, next_cursor}`, newest first, limit ≤ 50 |
 | GET | `/posts/{id}` | | |
 | DELETE | `/posts/{id}` | ✓ author | 204 |

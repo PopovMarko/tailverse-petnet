@@ -129,6 +129,13 @@ func (s *PetService) validate(pet core_domain.Pet) error {
 	if pet.Name == "" {
 		return fmt.Errorf("name is required: %w", core_errors.ErrInvalidArgument)
 	}
+	// Required on create and kept non-empty by PATCH: a blank value would clear them.
+	if pet.Breed == "" {
+		return fmt.Errorf("breed is required: %w", core_errors.ErrInvalidArgument)
+	}
+	if pet.ApproxAddress == "" {
+		return fmt.Errorf("approx_address is required: %w", core_errors.ErrInvalidArgument)
+	}
 	if pet.Species == "" {
 		return fmt.Errorf("species can not be derived from breed %q, send it explicitly: %w", pet.Breed, core_errors.ErrInvalidArgument)
 	}

@@ -63,7 +63,7 @@ func (f *fakePetRepository) GetPetCards(context.Context, []string) (map[string]c
 func TestCreatePetDerivesSpeciesFromBreed(t *testing.T) {
 	service := NewPetService(newFakePetRepository())
 
-	pet, err := service.CreatePet(context.Background(), "owner-1", core_domain.Pet{Name: " Rex ", Breed: "Golden Retriever"})
+	pet, err := service.CreatePet(context.Background(), "owner-1", core_domain.Pet{Name: " Rex ", Breed: "Golden Retriever", ApproxAddress: "Центр"})
 	if err != nil {
 		t.Fatalf("CreatePet: %v", err)
 	}
@@ -81,12 +81,12 @@ func TestCreatePetDerivesSpeciesFromBreed(t *testing.T) {
 func TestCreatePetRequiresSpeciesForUnknownBreed(t *testing.T) {
 	service := NewPetService(newFakePetRepository())
 
-	_, err := service.CreatePet(context.Background(), "owner-1", core_domain.Pet{Name: "Kesha", Breed: "Budgerigar"})
+	_, err := service.CreatePet(context.Background(), "owner-1", core_domain.Pet{Name: "Kesha", Breed: "Budgerigar", ApproxAddress: "Центр"})
 	if !errors.Is(err, core_errors.ErrInvalidArgument) {
 		t.Fatalf("err = %v, want ErrInvalidArgument", err)
 	}
 
-	pet, err := service.CreatePet(context.Background(), "owner-1", core_domain.Pet{Name: "Kesha", Breed: "Budgerigar", Species: "Bird"})
+	pet, err := service.CreatePet(context.Background(), "owner-1", core_domain.Pet{Name: "Kesha", Breed: "Budgerigar", Species: "Bird", ApproxAddress: "Центр"})
 	if err != nil {
 		t.Fatalf("CreatePet with explicit species: %v", err)
 	}
@@ -99,7 +99,7 @@ func TestCreatePetRejectsFutureBirthDate(t *testing.T) {
 	service := NewPetService(newFakePetRepository())
 
 	_, err := service.CreatePet(context.Background(), "owner-1", core_domain.Pet{
-		Name: "Rex", Species: "dog", BirthDate: time.Now().AddDate(1, 0, 0),
+		Name: "Rex", Species: "dog", Breed: "mixed", ApproxAddress: "Центр", BirthDate: time.Now().AddDate(1, 0, 0),
 	})
 	if !errors.Is(err, core_errors.ErrInvalidArgument) {
 		t.Fatalf("err = %v, want ErrInvalidArgument", err)
@@ -125,7 +125,7 @@ func TestUpdatePetOnlyByOwner(t *testing.T) {
 }
 
 func TestUpdatePetBreedChangesSpeciesUnlessExplicit(t *testing.T) {
-	repository := newFakePetRepository(core_domain.Pet{Id: "pet-1", OwnerId: "owner-1", Name: "Murka", Species: "dog", Breed: "mixed"})
+	repository := newFakePetRepository(core_domain.Pet{Id: "pet-1", OwnerId: "owner-1", Name: "Murka", Species: "dog", Breed: "mixed", ApproxAddress: "Центр"})
 	service := NewPetService(repository)
 
 	updated, err := service.UpdatePet(context.Background(), "owner-1", "pet-1", core_domain.PetPatch{Breed: new("Maine Coon")})
@@ -142,6 +142,69 @@ func TestUpdatePetBreedChangesSpeciesUnlessExplicit(t *testing.T) {
 	}
 	if updated.Species != "ferret" {
 		t.Errorf("species = %q, want the explicit ferret", updated.Species)
+	}
+}
+
+func TestCreatePetRequiresBreedAndArea(t *testing.T) {
+	service := NewPetService(newFakePetRepository())
+
+	for name, pet := range map[string]core_domain.Pet{
+		"blank breed":   {Name: "Rex", Species: "dog", Breed: "   ", ApproxAddress: "Центр"},
+		"blank address": {Name: "Rex", Species: "dog", Breed: "mixed", ApproxAddress: " "},
+	} {
+		if _, err := service.CreatePet(context.Background(), "owner-1", pet); !errors.Is(err, core_errors.ErrInvalidArgument) {
+			t.Errorf("%s: err = %v, want ErrInvalidArgument", name, err)
+		}
+	}
+}
+
+func TestUpdatePetCanNotClearBreedOrArea(t *testing.T) {
+	original := core_domain.Pet{Id: "pet-1", OwnerId: "owner-1", Name: "Rex", Species: "dog", Breed: "mixed", ApproxAddress: "Центр"}
+	repository := newFakePetRepository(original)
+	service := NewPetService(repository)
+
+	for name, patch := range map[string]core_domain.PetPatch{
+		"empty breed":   {Breed: new("")},
+		"blank breed":   {Breed: new("  ")},
+		"empty address": {ApproxAddress: new("")},
+		"blank name":    {Name: new(" ")},
+	} {
+		if _, err := service.UpdatePet(context.Background(), "owner-1", "pet-1", patch); !errors.Is(err, core_errors.ErrInvalidArgument) {
+			t.Errorf("%s: err = %v, want ErrInvalidArgument", name, err)
+		}
+	}
+	if repository.pets["pet-1"] != original {
+		t.Errorf("pet was changed by a rejected patch: %+v", repository.pets["pet-1"])
+	}
+}
+
+func TestUpdatePetSetsAndClearsBirthDate(t *testing.T) {
+	repository := newFakePetRepository(core_domain.Pet{Id: "pet-1", OwnerId: "owner-1", Name: "Rex", Species: "dog", Breed: "mixed", ApproxAddress: "Центр"})
+	service := NewPetService(repository)
+	birthDate := time.Date(2021, 4, 10, 0, 0, 0, 0, time.UTC)
+
+	updated, err := service.UpdatePet(context.Background(), "owner-1", "pet-1", core_domain.PetPatch{BirthDate: &birthDate})
+	if err != nil {
+		t.Fatalf("set birth date: %v", err)
+	}
+	if !updated.BirthDate.Equal(birthDate) {
+		t.Fatalf("birth date = %v, want %v", updated.BirthDate, birthDate)
+	}
+
+	updated, err = service.UpdatePet(context.Background(), "owner-1", "pet-1", core_domain.PetPatch{Name: new("Rex II")})
+	if err != nil {
+		t.Fatalf("patch without birth date: %v", err)
+	}
+	if !updated.BirthDate.Equal(birthDate) {
+		t.Errorf("a patch without birth_date changed it to %v", updated.BirthDate)
+	}
+
+	updated, err = service.UpdatePet(context.Background(), "owner-1", "pet-1", core_domain.PetPatch{BirthDate: &time.Time{}})
+	if err != nil {
+		t.Fatalf("clear birth date: %v", err)
+	}
+	if !updated.BirthDate.IsZero() || updated.Age(time.Now()) != nil {
+		t.Errorf("birth date = %v, want it removed", updated.BirthDate)
 	}
 }
 

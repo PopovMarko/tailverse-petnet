@@ -31,13 +31,14 @@ type PetsListResponseDto struct {
 	Pets []PetResponseDto `json:"pets"`
 }
 
-// PetUpdateDto is the PATCH body: every field is optional, absent fields are left unchanged.
+// PetUpdateDto is the PATCH body: every field is optional, absent (or null) fields are left unchanged.
+// birth_date "" removes the birth date; name, breed and approx_address can be changed but not cleared.
 type PetUpdateDto struct {
 	Name          *string               `json:"name" validate:"omitempty,min=1,max=100"`
-	Breed         *string               `json:"breed" validate:"omitempty,max=100"`
+	Breed         *string               `json:"breed" validate:"omitempty,min=1,max=100"`
 	Species       *string               `json:"species" validate:"omitempty,min=1,max=50"`
 	BirthDate     *core_http_types.Date `json:"birth_date"`
-	ApproxAddress *string               `json:"approx_address" validate:"omitempty,max=200"`
+	ApproxAddress *string               `json:"approx_address" validate:"omitempty,min=1,max=200"`
 }
 
 func DtoToDomain(pet PetRequestDto) core_domain.Pet {
